@@ -54,9 +54,15 @@ impl Default for Config {
 }
 
 impl Config {
+	fn exe_name_stem() -> String {
+		let mut path = std::env::current_exe().ok().unwrap();
+		path.set_extension("");
+		path.file_name().unwrap().to_str().unwrap().to_owned()
+	}
+
 	fn cfg_path() -> anyhow::Result<PathBuf> {
 		let mut path = std::env::current_dir()?;
-		path.push("ubuild-cfg.json");
+		path.push(format!("{}-cfg.json", Self::exe_name_stem()));
 		Ok(path)
 	}
 
@@ -64,7 +70,7 @@ impl Config {
 		let cfg_path = Self::cfg_path()?;
 		match cfg_path.exists() {
 			false => {
-				println!("No ubuild-cfg.json found, generating one now.");
+				println!("No uebuild-cfg.json found, generating one now.");
 				let config = Self::generate_from_disk().await?;
 				config.save().await?;
 				Ok(config)

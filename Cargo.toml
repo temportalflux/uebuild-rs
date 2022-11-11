@@ -1,5 +1,5 @@
 [package]
-name = "ubuild-rs"
+name = "uebuild"
 description = "Rust CLI for interfacing with Unreal Engine's command line api."
 version = "0.1.0"
 edition = "2021"

@@ -22,7 +22,7 @@ pub trait Operation {
 /// Compile uebuild as a binary and copy it to the project's root directory.
 #[derive(Parser, Debug)]
 pub struct ReleaseBinary {
-	#[clap(short, long, default_value = "ubuild")]
+	#[clap(short, long, default_value = "uebuild")]
 	name: String,
 }
 impl Operation for ReleaseBinary {
@@ -30,6 +30,7 @@ impl Operation for ReleaseBinary {
 		Box::pin(async move {
 			let mut out_path = config.project_root()?;
 			out_path.push(self.name);
+			out_path.set_extension("exe");
 
 			let cwd = std::env::current_dir()?;
 			spawn_command(
@@ -41,7 +42,7 @@ impl Operation for ReleaseBinary {
 
 			spawn_command(
 				Command::new("cp")
-					.arg("./target/release/ubuild-rs.exe")
+					.arg("./target/release/uebuild.exe")
 					.arg(format!("{}", out_path.display()))
 					.current_dir(cwd.clone()),
 			)

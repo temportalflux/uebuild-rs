@@ -35,7 +35,7 @@
 			"label": "4. Open Docs",
 			"command": "${config:chrome_path}",
 			"args": [
-				"${workspaceFolder}/target/doc/ubuild-rs/index.html"
+				"${workspaceFolder}/target/doc/uebuild/index.html"
 			],
 			"group": "build",
 			"problemMatcher": []
