@@ -38,7 +38,7 @@ pub enum Key {
 	ProjectServerTarget,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Config(Data);
 type Data = BTreeMap<Key, String>;
 
@@ -86,9 +86,7 @@ impl Config {
 		let cwd = std::env::current_dir()?;
 
 		let uproject_path = match find_uproject(&cwd)? {
-			Some(path) => {
-				path
-			}
+			Some(path) => path,
 			None => {
 				println!(
 					"Failed to find uproject file in {cwd}, using empty config.",
@@ -337,7 +335,7 @@ async fn find_default_map(project_root: &Path) -> anyhow::Result<Option<String>>
 	Ok(None)
 }
 
-fn read_ini_prop<'a>(ini_content: &'a str, prop_name: &str) -> Option<&'a str> {
+pub(crate) fn read_ini_prop<'a>(ini_content: &'a str, prop_name: &str) -> Option<&'a str> {
 	let game_default_map = regex::Regex::new(&format!("{prop_name}=(?P<value>.*)")).unwrap();
 	let captures = match game_default_map.captures(&ini_content) {
 		Some(matches) => matches,

@@ -12,14 +12,13 @@ mod run_editor;
 pub use run_editor::*;
 mod run_pisep;
 pub use run_pisep::*;
-mod localization;
-pub use localization::*;
+pub mod localization;
 
 pub trait Operation {
 	fn run(self, config: crate::config::Config) -> PinFuture<anyhow::Result<()>>;
 }
 
-/// Compile uebuild as a binary and copy it to the project's root directory.
+/// [DEBUG ONLY] Compile uebuild as a binary and copy it to the project's root directory.
 #[derive(Parser, Debug)]
 pub struct ReleaseBinary {
 	#[clap(short, long, default_value = "uebuild")]

@@ -28,3 +28,5 @@ glob = "0.3"
 regex = "1.5"
 # [utility] catching signals like CTRL+C from the terminal
 signal-hook = "0.3"
+zip = "0.6.3"
+chrono = "0.4"

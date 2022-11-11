@@ -29,7 +29,8 @@ pub enum Cli {
 
 	Editor(commands::RunEditor),
 	Pisep(commands::RunPisep),
-	Loc(commands::UpdateLocalization),
+	#[command(subcommand)]
+	Loc(commands::localization::Localization),
 }
 
 /// Delegate execution to the various subcommands.

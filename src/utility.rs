@@ -40,25 +40,37 @@ pub async fn spawn_command(command: &mut tokio::process::Command) -> anyhow::Res
 
 	let mut child = KillChildOnDrop(child);
 	let out_handle: JoinHandle<anyhow::Result<()>> = tokio::task::spawn(async move {
-		while let Some(line) = out_stream.next_line().await? {
-			// would be better if we were using the `log` crate, but this is simpler for proof-of-concept
-			// could look like: log::info!(target: "generate-project-files", "{line}");
-			println!("{line}");
+		'read: loop {
+			match out_stream.next_line().await {
+				Ok(Some(line)) => {
+					// would be better if we were using the `log` crate, but this is simpler for proof-of-concept
+					// could look like: log::info!(target: "generate-project-files", "{line}");
+					println!("{line}");
+				}
+				Ok(None) => break 'read,
+				_ => {}
+			}
 		}
 		Ok(())
 	});
 	let err_handle: JoinHandle<anyhow::Result<()>> = tokio::task::spawn(async move {
-		while let Some(line) = err_stream.next_line().await? {
-			// would be better if we were using the `log` crate, but this is simpler for proof-of-concept
-			// could look like: log::error!(target: "generate-project-files", "{line}");
-			eprintln!("[ERROR] {line}");
+		'read: loop {
+			match err_stream.next_line().await {
+				Ok(Some(line)) => {
+					// would be better if we were using the `log` crate, but this is simpler for proof-of-concept
+					// could look like: log::error!(target: "generate-project-files", "{line}");
+					eprintln!("[ERROR] {line}");
+				}
+				Ok(None) => break 'read,
+				_ => {}
+			}
 		}
 		Ok(())
 	});
 
 	let _status = child.0.wait().await?;
-	out_handle.await??;
-	err_handle.await??;
+	out_handle.await?.context("pipe stdout")?;
+	err_handle.await?.context("pipe stdout")?;
 	Ok(())
 }
 
