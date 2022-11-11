@@ -11,8 +11,8 @@ impl super::Operation for UpdateProjectFiles {
 		Box::pin(async move {
 			let root = config.project_root()?;
 			let batch = {
-				let mut path = root.clone();
-				path.push("GenerateProjectFiles.bat");
+				let mut path = config.engine_path()?;
+				path.push("Build/BatchFiles/GenerateProjectFiles.bat");
 				path
 			};
 			spawn_command(Command::new(batch).current_dir(root)).await?;

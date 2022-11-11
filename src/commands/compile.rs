@@ -27,12 +27,13 @@ impl super::Operation for Compile {
 				path.push("Build/BatchFiles/Build.bat");
 				path
 			};
+			let project_target_name = config.get_project_target(self.target)?;
 			spawn_command(
 				Command::new(build_batch)
 					.current_dir(config.project_root()?)
-					.arg(self.target.as_ue())
+					.arg(project_target_name)
+					.arg(self.configuration.as_ue())
 					.arg(self.platform.as_ue())
-					.arg(self.configuration.as_ue()),
 			)
 			.await?;
 			Ok(())
