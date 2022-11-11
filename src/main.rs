@@ -15,6 +15,7 @@ pub mod utility;
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
 pub enum Cli {
+	InitCfg(config::SaveToDisk),
 	Cfg(config::Configure),
 
 	#[cfg(debug_assertions)]
@@ -35,6 +36,7 @@ pub enum Cli {
 impl commands::Operation for Cli {
 	fn run(self, config: config::Config) -> utility::PinFuture<anyhow::Result<()>> {
 		match self {
+			Self::InitCfg(cmd) => cmd.run(config),
 			Self::Cfg(cmd) => cmd.run(config),
 			#[cfg(debug_assertions)]
 			Self::Ship(cmd) => cmd.run(config),

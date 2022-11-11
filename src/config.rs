@@ -2,12 +2,14 @@ use crate::{
 	types::Target,
 	unreal::{self, EditorTarget},
 };
-use clap::{ValueEnum, Parser};
+use anyhow::Context;
+use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::BTreeMap,
 	hash::Hash,
 	path::{Path, PathBuf},
+	str::FromStr,
 };
 
 /// An identifier for all supported per-user settings/preferences.
@@ -26,6 +28,7 @@ pub enum Key {
 	/// The name of the `.uproject` file (without the suffix).
 	ProjectName,
 	/// The unreal asset path for the default level of a dedicated server.
+	/// TODO: equivalent to DefaultEngine.ini/ServerDefaultMap without extension of the value interpretted as a path
 	DefaultServerLevel,
 	/// The name of the `.target.cs` file associated with building the editor.
 	ProjectEditorTarget,
@@ -35,6 +38,7 @@ pub enum Key {
 	ProjectServerTarget,
 }
 
+#[derive(Debug)]
 pub struct Config(Data);
 type Data = BTreeMap<Key, String>;
 
@@ -69,12 +73,7 @@ impl Config {
 	pub async fn load() -> anyhow::Result<Self> {
 		let cfg_path = Self::cfg_path()?;
 		match cfg_path.exists() {
-			false => {
-				println!("No uebuild-cfg.json found, generating one now.");
-				let config = Self::generate_from_disk().await?;
-				config.save().await?;
-				Ok(config)
-			}
+			false => Ok(Self::generate_from_disk().await?),
 			true => {
 				let raw_file = tokio::fs::read_to_string(&cfg_path).await?;
 				let data = serde_json::from_str::<Data>(&raw_file)?;
@@ -88,7 +87,6 @@ impl Config {
 
 		let uproject_path = match find_uproject(&cwd)? {
 			Some(path) => {
-				println!("Found uproject file at {}", path.display());
 				path
 			}
 			None => {
@@ -106,21 +104,35 @@ impl Config {
 			.to_str()
 			.unwrap()
 			.to_owned();
-		let default_map = find_default_map(&project_root).await?;
+		let default_map = find_default_map(&project_root)
+			.await
+			.context("find default map")?;
 
-		let uproject = unreal::UProject::read(&uproject_path).await?;
+		let uproject = unreal::UProject::read(&uproject_path)
+			.await
+			.context("read uproject")?;
 		let engine_path = find_engine_path(&project_root, uproject.get_engine_association());
 
 		let mut config = Self::default();
 		if let Some(path) = engine_path {
 			config.insert(Key::EnginePath, &path);
-		}
 
-		let editor_target = EditorTarget::read(&project_root.join(format!(
-			"Binaries/Win64/{project_name}Editor-Win64-DebugGame.target"
-		)))
-		.await?;
-		config.insert(Key::EditorBinaryPath, &editor_target.binary_path());
+			let editor_target = EditorTarget::read(
+				&path.join(format!("Binaries/Win64/UE4Editor-Win64-DebugGame.target")),
+			)
+			.await;
+			let binary_path = match editor_target {
+				Ok(editor_target) => {
+					let binary_path = editor_target.binary_path();
+					match binary_path.strip_prefix("$(EngineDir)/") {
+						Ok(path) => path.to_owned(),
+						_ => binary_path,
+					}
+				}
+				_ => path.join("Binaries/Win64/UE4Editor-Win64-DebugGame.exe"),
+			};
+			config.insert(Key::EditorBinaryPath, &binary_path);
+		}
 
 		config.insert(Key::ProjectRoot, &project_root);
 		config.0.insert(Key::ProjectName, project_name.clone());
@@ -144,6 +156,13 @@ impl Config {
 				.insert(Key::ProjectServerTarget, format!("{project_name}Server"));
 		}
 		if let Some(asset_path) = default_map {
+			let asset_path = match PathBuf::from_str(&asset_path) {
+				Ok(mut asset_path) => {
+					asset_path.set_extension("");
+					asset_path.to_str().unwrap().to_owned()
+				}
+				_ => asset_path,
+			};
 			config.0.insert(Key::DefaultServerLevel, asset_path);
 		}
 		Ok(config)
@@ -156,6 +175,7 @@ impl Config {
 	async fn save(&self) -> anyhow::Result<()> {
 		let cfg_path = Self::cfg_path()?;
 		let content = serde_json::to_string_pretty(&self.0)?;
+		println!("Saving current configuration to {:?}", cfg_path);
 		tokio::fs::write(&cfg_path, content).await?;
 		Ok(())
 	}
@@ -240,6 +260,19 @@ impl crate::commands::Operation for Configure {
 	}
 }
 
+/// Save the dynamically generated config to the current directory.
+#[derive(Parser, Debug)]
+pub struct SaveToDisk;
+
+impl crate::commands::Operation for SaveToDisk {
+	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
+		Box::pin(async move {
+			config.save().await?;
+			Ok(())
+		})
+	}
+}
+
 fn find_uproject(cwd: &Path) -> anyhow::Result<Option<PathBuf>> {
 	if let Some(path) = glob_path_exists(&cwd, "/*.uproject")? {
 		return Ok(Some(path));
@@ -292,7 +325,9 @@ fn find_engine_path(project_root: &Path, engine_association: Option<&String>) ->
 
 async fn find_default_map(project_root: &Path) -> anyhow::Result<Option<String>> {
 	let engine_ini = project_root.join("Config/DefaultEngine.ini");
-	let content = tokio::fs::read_to_string(&engine_ini).await?;
+	let content = tokio::fs::read_to_string(&engine_ini)
+		.await
+		.context("read DefaultEngine.ini")?;
 	if let Some(default_map) = read_ini_prop(&content, "ServerDefaultMap") {
 		return Ok(Some(default_map.to_owned()));
 	}

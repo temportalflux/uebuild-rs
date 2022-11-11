@@ -33,7 +33,7 @@ impl super::Operation for Compile {
 					.current_dir(config.project_root()?)
 					.arg(project_target_name)
 					.arg(self.configuration.as_ue())
-					.arg(self.platform.as_ue())
+					.arg(self.platform.as_ue()),
 			)
 			.await?;
 			Ok(())

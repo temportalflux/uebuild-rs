@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -9,7 +10,9 @@ pub struct EditorTarget {
 
 impl EditorTarget {
 	pub async fn read(path: &Path) -> anyhow::Result<Self> {
-		let json = tokio::fs::read_to_string(path).await?;
+		let json = tokio::fs::read_to_string(path)
+			.await
+			.context(format!("read {:?}", path))?;
 		Ok(serde_json::from_str::<Self>(&json)?)
 	}
 
