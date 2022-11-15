@@ -21,8 +21,13 @@ jobs:
     - name: debug
       shell: bash
       run: |
+        echo "$PWD"
         ls .
+        echo "---------"
+        echo "$PWD/target/release"
         ls ./target/release
+        echo "help uebuild(.exe)"
+        ./target/release/uebuild --help
     # - name: create-release
     #   uses: ncipollo/release-action@v1
     #   env:
