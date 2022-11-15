@@ -1,0 +1,28 @@
+name: Release
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: get-version
+      shell: bash
+      run: |
+        version=$(awk -F' = ' '/^version/{print substr($2, 2, length($2)-2)}' Cargo.toml)
+        echo "VERSION=${version}" >> $GITHUB_ENV
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - name: build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release
+    - name: create-release
+      uses: ncipollo/release-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "v${{ env.VERSION }}"
+        release_name: "uebuild v${{ env.VERSION }}"
+        artifacts: "./target/release/uebuild.exe"

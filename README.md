@@ -3,7 +3,7 @@
 [<img alt="github" src="https://img.shields.io/badge/github-temportalflux/uebuild-rs-8da0cb?logo=github" height="20">](https://github.com/temportalflux/uebuild-rs)
 [![Latest version](https://img.shields.io/crates/v/uebuild.svg)](https://crates.io/crates/uebuild)
 [![Documentation](https://docs.rs/uebuild/badge.svg)](https://docs.rs/uebuild)
-[![Build Status](https://github.com/temportalflux/uebuild-rs/workflows/CI/badge.svg)](https://github.com/temportalflux/uebuild-rs/actions?workflow=CI)
+[![Build Status](https://github.com/temportalflux/uebuild-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/temportalflux/uebuild-rs/actions/workflows/rust.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/temportalflux/uebuild-rs/blob/master/LICENSE-MIT)
 [![Apache](https://img.shields.io/badge/license-Apache-blue.svg)](https://github.com/temportalflux/uebuild-rs/blob/master/LICENSE-APACHE)
 
