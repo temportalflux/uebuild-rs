@@ -23,6 +23,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: "v${{ env.VERSION }}"
+        tag: "v${{ env.VERSION }}"
         release_name: "uebuild v${{ env.VERSION }}"
         artifacts: "./target/release/uebuild.exe"
