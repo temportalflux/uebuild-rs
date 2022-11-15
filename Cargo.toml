@@ -1,7 +1,7 @@
 [package]
 name = "uebuild"
 description = "Rust CLI for interfacing with Unreal Engine's command line api."
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Dustin Yost <dustin.yost.t@gmail.com>"]
 
