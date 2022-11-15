@@ -18,22 +18,12 @@ jobs:
       with:
         command: build
         args: --release
-    - name: debug
-      shell: bash
-      run: |
-        echo "$PWD"
-        ls .
-        echo "---------"
-        echo "$PWD/target/release"
-        ls ./target/release
-        echo "help uebuild(.exe)"
-        ./target/release/uebuild.exe --help
-    # - name: create-release
-    #   uses: ncipollo/release-action@v1
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   with:
-    #     tag: "v${{ env.VERSION }}"
-    #     name: "uebuild v${{ env.VERSION }}"
-    #     prerelease: false
-    #     artifacts: "./target/release/uebuild.exe"
+    - name: create-release
+      uses: ncipollo/release-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag: "v${{ env.VERSION }}"
+        name: "uebuild v${{ env.VERSION }}"
+        prerelease: false
+        artifacts: "./target/release/uebuild.exe"
