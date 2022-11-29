@@ -76,10 +76,17 @@ async fn main() -> anyhow::Result<()> {
 
 async fn run_cli() -> anyhow::Result<()> {
 	use commands::Operation;
+
+	// Load any .env file that may or may not exist.
+	let _ = dotenv::dotenv();
+
 	// Load the config from disk
-	let config = config::Config::load().await?;
+	config::Config::set_global(config::Config::load().await?);
 	// Parse the command line args as a cli operation
 	let cli = Cli::parse();
+	// Config is kept globally until after parse so that value parsers can use it.
+	let config = config::Config::take_global().unwrap();
+
 	// Construct the error context because `run` takes ownership of `cli`
 	let failed_context = format!("failed to run {cli:?}");
 	// Actually run the desired commmand with the loaded configuration

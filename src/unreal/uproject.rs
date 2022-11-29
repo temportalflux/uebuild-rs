@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{types::Platform, utility::AsUnrealStr};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct UProject {
 	#[serde(rename = "EngineAssociation")]
 	pub engine_association: String,
@@ -13,7 +13,7 @@ pub struct UProject {
 	pub plugins: Vec<Plugin>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Plugin {
 	#[serde(rename = "Name")]
 	pub name: String,

@@ -1,7 +1,10 @@
 use crate::utility::AsUnrealStr;
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(
+	Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Hash, Serialize, Deserialize,
+)]
 pub enum Target {
 	Editor,
 	Client,

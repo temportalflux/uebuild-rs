@@ -6,7 +6,8 @@ edition = "2021"
 authors = ["Dustin Yost <dustin.yost.t@gmail.com>"]
 
 [dependencies]
-clap = { version = "4.0", features = ["derive", "env"] }
+clap = { version = "4.0", features = ["derive", "env", "string"] }
+dotenv = "0.15"
 
 # [error] collapsing any error into one result type
 anyhow = "1.0"
@@ -30,3 +31,5 @@ regex = "1.5"
 signal-hook = "0.3"
 zip = "0.6.3"
 chrono = "0.4"
+enumset = "1.0"
+rust-ini = "0.18"

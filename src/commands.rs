@@ -27,9 +27,7 @@ pub struct ReleaseBinary {
 impl Operation for ReleaseBinary {
 	fn run(self, config: crate::config::Config) -> PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let mut out_path = config.project_root()?;
-			out_path.push(self.name);
-			out_path.set_extension("exe");
+			let out_path = config.project_root().join(self.name).with_extension("exe");
 
 			let cwd = std::env::current_dir()?;
 			spawn_command(

@@ -9,12 +9,10 @@ pub struct UpdateProjectFiles;
 impl super::Operation for UpdateProjectFiles {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let root = config.project_root()?;
-			let batch = {
-				let mut path = config.engine_path()?;
-				path.push("Build/BatchFiles/GenerateProjectFiles.bat");
-				path
-			};
+			let root = config.project_root();
+			let batch = config
+				.engine_path()
+				.join("Build/BatchFiles/GenerateProjectFiles.bat");
 			spawn_command(Command::new(batch).current_dir(root)).await?;
 			Ok(())
 		})

@@ -1,21 +1,19 @@
 use crate::{
 	types::Target,
-	unreal::{self, EditorTarget},
+	unreal::{self, EditorTarget, UProject},
 };
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
+use enumset::{EnumSet, EnumSetType};
 use serde::{Deserialize, Serialize};
 use std::{
-	collections::BTreeMap,
-	hash::Hash,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	str::FromStr,
 };
 
 /// An identifier for all supported per-user settings/preferences.
-#[derive(
-	Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize, Hash,
-)]
+#[derive(Debug, PartialOrd, Ord, ValueEnum, Serialize, Deserialize, EnumSetType)]
 pub enum Key {
 	/// The aboslute path to the engine.
 	/// Should be equivalent to "/c/Program Files/Epic Games/UE4.26/".
@@ -28,7 +26,6 @@ pub enum Key {
 	/// The name of the `.uproject` file (without the suffix).
 	ProjectName,
 	/// The unreal asset path for the default level of a dedicated server.
-	/// TODO: equivalent to DefaultEngine.ini/ServerDefaultMap without extension of the value interpretted as a path
 	DefaultServerLevel,
 	/// The name of the `.target.cs` file associated with building the editor.
 	ProjectEditorTarget,
@@ -38,22 +35,38 @@ pub enum Key {
 	ProjectServerTarget,
 }
 
-#[derive(Debug, Clone)]
-pub struct Config(Data);
-type Data = BTreeMap<Key, String>;
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Config {
+	engine_path: PathBuf,
+	editor_binary_path: PathBuf,
+	project_root: PathBuf,
+	project_name: String,
+	default_server_level: String,
+	project_targets: HashMap<Target, String>,
+	#[serde(skip)]
+	project: UProject,
+	#[serde(skip)]
+	engine: Engine,
+	#[serde(skip)]
+	game: Game,
+}
 
-impl Default for Config {
-	fn default() -> Self {
-		let mut data = Data::new();
-		data.insert(Key::EnginePath, "".to_owned());
-		data.insert(Key::EditorBinaryPath, "".to_owned());
-		data.insert(Key::ProjectRoot, "".to_owned());
-		data.insert(Key::ProjectName, "".to_owned());
-		data.insert(Key::DefaultServerLevel, "".to_owned());
-		data.insert(Key::ProjectEditorTarget, "".to_owned());
-		data.insert(Key::ProjectClientTarget, "".to_owned());
-		data.insert(Key::ProjectServerTarget, "".to_owned());
-		Self(data)
+impl Config {
+	fn instance() -> &'static mut Option<Self> {
+		static mut INSTANCE: Option<Config> = None;
+		unsafe { &mut INSTANCE }
+	}
+
+	pub fn set_global(inst: Self) {
+		*Self::instance() = Some(inst);
+	}
+
+	pub fn get_global() -> &'static Self {
+		Self::instance().as_ref().unwrap()
+	}
+
+	pub fn take_global() -> Option<Self> {
+		Self::instance().take()
 	}
 }
 
@@ -64,26 +77,33 @@ impl Config {
 		path.file_name().unwrap().to_str().unwrap().to_owned()
 	}
 
+	fn runtime_root() -> anyhow::Result<PathBuf> {
+		Ok(match std::env::var("PROJECT_ROOT") {
+			Ok(root) => PathBuf::from_str(&root)?,
+			_ => std::env::current_dir()?,
+		})
+	}
+
 	fn cfg_path() -> anyhow::Result<PathBuf> {
-		let mut path = std::env::current_dir()?;
-		path.push(format!("{}-cfg.json", Self::exe_name_stem()));
-		Ok(path)
+		Ok(Self::runtime_root()?.join(format!("{}-cfg.json", Self::exe_name_stem())))
 	}
 
 	pub async fn load() -> anyhow::Result<Self> {
 		let cfg_path = Self::cfg_path()?;
-		match cfg_path.exists() {
-			false => Ok(Self::generate_from_disk().await?),
+		let mut config = match cfg_path.exists() {
+			false => Self::generate_from_disk().await?,
 			true => {
 				let raw_file = tokio::fs::read_to_string(&cfg_path).await?;
-				let data = serde_json::from_str::<Data>(&raw_file)?;
-				Ok(Self(data))
+				serde_json::from_str::<Self>(&raw_file)?
 			}
-		}
+		};
+		config.load_configs().await?;
+		Ok(config)
 	}
 
 	async fn generate_from_disk() -> anyhow::Result<Self> {
-		let cwd = std::env::current_dir()?;
+		let cwd = Self::runtime_root()?;
+		let mut config = Self::default();
 
 		let uproject_path = match find_uproject(&cwd)? {
 			Some(path) => path,
@@ -95,31 +115,30 @@ impl Config {
 				return Ok(Self::default());
 			}
 		};
-		let project_root = uproject_path.parent().unwrap().to_owned();
-		let project_name = uproject_path
+		config.project_root = uproject_path.parent().unwrap().to_owned();
+		config.project_name = uproject_path
 			.file_stem()
 			.unwrap()
 			.to_str()
 			.unwrap()
 			.to_owned();
-		let default_map = find_default_map(&project_root)
-			.await
-			.context("find default map")?;
 
-		let uproject = unreal::UProject::read(&uproject_path)
+		config.project = unreal::UProject::read(&uproject_path)
 			.await
 			.context("read uproject")?;
-		let engine_path = find_engine_path(&project_root, uproject.get_engine_association());
+		let engine_path = find_engine_path(
+			&config.project_root,
+			config.project.get_engine_association(),
+		);
 
-		let mut config = Self::default();
 		if let Some(path) = engine_path {
-			config.insert(Key::EnginePath, &path);
+			config.engine_path = path.clone();
 
 			let editor_target = EditorTarget::read(
 				&path.join(format!("Binaries/Win64/UE4Editor-Win64-DebugGame.target")),
 			)
 			.await;
-			let binary_path = match editor_target {
+			config.editor_binary_path = match editor_target {
 				Ok(editor_target) => {
 					let binary_path = editor_target.binary_path();
 					match binary_path.strip_prefix("$(EngineDir)/") {
@@ -129,88 +148,121 @@ impl Config {
 				}
 				_ => path.join("Binaries/Win64/UE4Editor-Win64-DebugGame.exe"),
 			};
-			config.insert(Key::EditorBinaryPath, &binary_path);
 		}
 
-		config.insert(Key::ProjectRoot, &project_root);
-		config.0.insert(Key::ProjectName, project_name.clone());
 		config
-			.0
-			.insert(Key::ProjectClientTarget, project_name.clone());
-		if project_root
-			.join(format!("Source/{project_name}Editor.Target.cs"))
+			.project_targets
+			.insert(Target::Client, config.project_name.clone());
+		if config
+			.project_root
+			.join(format!("Source/{}Editor.Target.cs", config.project_name))
 			.exists()
 		{
 			config
-				.0
-				.insert(Key::ProjectEditorTarget, format!("{project_name}Editor"));
+				.project_targets
+				.insert(Target::Editor, format!("{}Editor", config.project_name));
 		}
-		if project_root
-			.join(format!("Source/{project_name}Server.Target.cs"))
+		if config
+			.project_root
+			.join(format!("Source/{}Server.Target.cs", config.project_name))
 			.exists()
 		{
 			config
-				.0
-				.insert(Key::ProjectServerTarget, format!("{project_name}Server"));
+				.project_targets
+				.insert(Target::Server, format!("{}Server", config.project_name));
 		}
-		if let Some(asset_path) = default_map {
-			let asset_path = match PathBuf::from_str(&asset_path) {
-				Ok(mut asset_path) => {
-					asset_path.set_extension("");
-					asset_path.to_str().unwrap().to_owned()
-				}
-				_ => asset_path,
-			};
-			config.0.insert(Key::DefaultServerLevel, asset_path);
-		}
+
 		Ok(config)
 	}
 
-	fn insert(&mut self, key: Key, path: &Path) {
-		self.0.insert(key, format!("{}", path.display()));
+	async fn load_configs(&mut self) -> anyhow::Result<()> {
+		self.engine = Engine::load(&self.project_root).await?;
+		self.game = Game::load(&self.project_root).await?;
+		Ok(())
+	}
+
+	fn get(&self, key: &Key) -> Option<String> {
+		match key {
+			Key::EnginePath => Some(format!("{}", self.engine_path.display())),
+			Key::EditorBinaryPath => Some(format!("{}", self.editor_binary_path.display())),
+			Key::ProjectRoot => Some(format!("{}", self.project_root.display())),
+			Key::ProjectName => Some(self.project_name.clone()),
+			Key::DefaultServerLevel => Some(self.default_server_level.clone()),
+			Key::ProjectEditorTarget => self.project_targets.get(&Target::Editor).cloned(),
+			Key::ProjectClientTarget => self.project_targets.get(&Target::Client).cloned(),
+			Key::ProjectServerTarget => self.project_targets.get(&Target::Server).cloned(),
+		}
+	}
+
+	fn set(&mut self, key: &Key, value: String) {
+		match key {
+			Key::EnginePath => {
+				self.engine_path = PathBuf::from_str(&value).unwrap();
+			}
+			Key::EditorBinaryPath => {
+				self.editor_binary_path = PathBuf::from_str(&value).unwrap();
+			}
+			Key::ProjectRoot => {
+				self.project_root = PathBuf::from_str(&value).unwrap();
+			}
+			Key::ProjectName => {
+				self.project_name = value;
+			}
+			Key::DefaultServerLevel => {
+				self.default_server_level = value;
+			}
+			Key::ProjectEditorTarget => {
+				self.project_targets.insert(Target::Editor, value);
+			}
+			Key::ProjectClientTarget => {
+				self.project_targets.insert(Target::Client, value);
+			}
+			Key::ProjectServerTarget => {
+				self.project_targets.insert(Target::Server, value);
+			}
+		}
 	}
 
 	async fn save(&self) -> anyhow::Result<()> {
 		let cfg_path = Self::cfg_path()?;
-		let content = serde_json::to_string_pretty(&self.0)?;
+		let content = serde_json::to_string_pretty(&self)?;
 		println!("Saving current configuration to {:?}", cfg_path);
 		tokio::fs::write(&cfg_path, content).await?;
 		Ok(())
 	}
 
-	pub fn get(&self, key: Key) -> Result<&String, MissingValue> {
-		self.0.get(&key).ok_or(MissingValue(key))
+	pub fn engine_path(&self) -> &PathBuf {
+		&self.engine_path
 	}
 
-	pub fn engine_path(&self) -> Result<PathBuf, MissingValue> {
-		Ok(PathBuf::from(self.get(Key::EnginePath)?))
+	pub fn editor_binary(&self) -> PathBuf {
+		self.engine_path().join(&self.editor_binary_path)
 	}
 
-	pub fn editor_binary(&self) -> Result<PathBuf, MissingValue> {
-		let mut path = self.engine_path()?;
-		path.push(self.get(Key::EditorBinaryPath)?);
-		Ok(path)
+	pub fn project_root(&self) -> &PathBuf {
+		&self.project_root
 	}
 
-	pub fn project_root(&self) -> Result<PathBuf, MissingValue> {
-		Ok(PathBuf::from(self.get(Key::ProjectRoot)?))
+	pub fn uproject_path(&self) -> PathBuf {
+		self.project_root()
+			.join(&self.project_name)
+			.with_extension("uproject")
 	}
 
-	pub fn uproject_path(&self) -> Result<PathBuf, MissingValue> {
-		Ok({
-			let mut path = self.project_root()?;
-			path.push(self.get(Key::ProjectName)?);
-			path.set_extension("uproject");
-			path
-		})
+	pub fn project(&self) -> &UProject {
+		&self.project
 	}
 
-	pub fn get_project_target(&self, target: Target) -> Result<&String, MissingValue> {
-		self.get(match target {
-			Target::Editor => Key::ProjectEditorTarget,
-			Target::Client => Key::ProjectClientTarget,
-			Target::Server => Key::ProjectServerTarget,
-		})
+	pub fn get_project_target(&self, target: Target) -> Option<&String> {
+		self.project_targets.get(&target)
+	}
+
+	pub fn engine(&self) -> &Engine {
+		&self.engine
+	}
+
+	pub fn game(&self) -> &Game {
+		&self.game
 	}
 }
 
@@ -241,15 +293,17 @@ impl crate::commands::Operation for Configure {
 		Box::pin(async move {
 			match (self.key, self.value) {
 				(None, _) => {
-					for (key, value) in config.0.iter() {
-						println!("{:?} => {:?}", key, value);
+					for key in EnumSet::<Key>::all().into_iter() {
+						if let Some(value) = config.get(&key) {
+							println!("{:?} => {:?}", key, value);
+						}
 					}
 				}
 				(Some(key), None) => {
-					println!("{:?} => {:?}", key, config.get(key).ok());
+					println!("{:?} => {:?}", key, config.get(&key));
 				}
 				(Some(key), Some(value)) => {
-					config.0.insert(key, value);
+					config.set(&key, value);
 					config.save().await?;
 				}
 			}
@@ -321,18 +375,109 @@ fn find_engine_path(project_root: &Path, engine_association: Option<&String>) ->
 	}
 }
 
-async fn find_default_map(project_root: &Path) -> anyhow::Result<Option<String>> {
-	let engine_ini = project_root.join("Config/DefaultEngine.ini");
-	let content = tokio::fs::read_to_string(&engine_ini)
-		.await
-		.context("read DefaultEngine.ini")?;
-	if let Some(default_map) = read_ini_prop(&content, "ServerDefaultMap") {
-		return Ok(Some(default_map.to_owned()));
+#[derive(Debug, Clone, Default)]
+pub struct Engine {
+	default_map_server: Option<String>,
+	default_map_game: Option<String>,
+	mode_aliases: Vec<String>,
+}
+
+impl Engine {
+	async fn load(project_root: &Path) -> anyhow::Result<Self> {
+		let path = project_root.join("Config/DefaultEngine.ini");
+		let text = tokio::fs::read_to_string(&path)
+			.await
+			.context("read DefaultEngine.ini")?;
+		let content = ini::Ini::load_from_str(&text)?;
+
+		let mut engine = Self::default();
+		if let Some(map_settings) = content.section(Some("/Script/EngineSettings.GameMapsSettings"))
+		{
+			engine.default_map_server = map_settings.get("ServerDefaultMap").map(str::to_owned);
+			engine.default_map_game = map_settings.get("GameDefaultMap").map(str::to_owned);
+
+			let mut all_aliases = HashMap::new();
+			for value in map_settings.get_all("+GameModeClassAliases") {
+				let value = value.strip_prefix("(Name=\"").unwrap_or(value);
+				let value = value.split("\"").next().unwrap();
+				all_aliases.insert(
+					value.to_owned(),
+					match value == value.to_lowercase() {
+						true => None,
+						false => Some(value.to_lowercase()),
+					},
+				);
+			}
+			let mut aliases = HashSet::new();
+			for (alias, distinct_lowercase) in all_aliases.iter() {
+				if let Some(lowercase) = distinct_lowercase {
+					if all_aliases.contains_key(lowercase) {
+						continue;
+					}
+				}
+				aliases.insert(alias.clone());
+			}
+			engine.mode_aliases = aliases.into_iter().collect();
+			engine.mode_aliases.sort();
+		}
+
+		Ok(engine)
 	}
-	if let Some(default_map) = read_ini_prop(&content, "GameDefaultMap") {
-		return Ok(Some(default_map.to_owned()));
+
+	pub fn default_map(&self) -> Option<PathBuf> {
+		let map = self
+			.default_map_server
+			.as_ref()
+			.or(self.default_map_game.as_ref());
+		let Some(map) = map else { return None; };
+		let Ok(mut path) = PathBuf::from_str(map) else { return None; };
+		path.set_extension("");
+		Some(path)
 	}
-	Ok(None)
+
+	pub fn mode_aliases(&self) -> &Vec<String> {
+		&self.mode_aliases
+	}
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Game {
+	maps_to_cook: Vec<PathBuf>,
+}
+
+impl Game {
+	async fn load(project_root: &Path) -> anyhow::Result<Self> {
+		let path = project_root.join("Config/DefaultGame.ini");
+		let text = tokio::fs::read_to_string(&path)
+			.await
+			.context("read DefaultGame.ini")?;
+		let content = ini::Ini::load_from_str(&text)?;
+
+		let mut maps_to_cook = Vec::new();
+		if let Some(packaging) = content.section(Some("/Script/UnrealEd.ProjectPackagingSettings"))
+		{
+			for value in packaging.get_all("+MapsToCook") {
+				let value = value.strip_prefix("(FilePath=\"").unwrap_or(value);
+				let value = value.strip_suffix("\")").unwrap_or(value);
+				if let Ok(path) = PathBuf::from_str(value) {
+					maps_to_cook.push(path);
+				}
+			}
+		}
+
+		Ok(Self { maps_to_cook })
+	}
+
+	pub fn maps_by_name(&self) -> HashMap<String, &PathBuf> {
+		self.maps_to_cook
+			.iter()
+			.map(PathBuf::as_path)
+			.filter_map(Path::file_name)
+			.filter_map(std::ffi::OsStr::to_str)
+			.map(str::to_owned)
+			.zip(self.maps_to_cook.iter())
+			.collect()
+	}
 }
 
 pub(crate) fn read_ini_prop<'a>(ini_content: &'a str, prop_name: &str) -> Option<&'a str> {

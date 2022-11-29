@@ -23,20 +23,12 @@ pub struct Cook {
 impl super::Operation for Cook {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let uat_batch = {
-				let mut path = config.engine_path()?;
-				path.push("Build/BatchFiles/RunUAT.bat");
-				path
-			};
-			let deploy_dir = {
-				let mut path = config.project_root()?;
-				path.push(self.dest);
-				path
-			};
-			let uproject = config.uproject_path()?;
-			let project_target_name = config.get_project_target(self.target)?;
+			let uat_batch = config.engine_path().join("Build/BatchFiles/RunUAT.bat");
+			let deploy_dir = config.project_root().join(self.dest);
+			let uproject = config.uproject_path();
+			let project_target_name = config.get_project_target(self.target).unwrap();
 			let mut cmd = Command::new(uat_batch);
-			cmd.current_dir(config.project_root()?)
+			cmd.current_dir(config.project_root())
 				.arg(format!("-ScriptsForProject=\"{}\"", uproject.display()))
 				.arg("BuildCookRun")
 				.arg(format!("-project=\"{}\"", uproject.display()))

@@ -1,7 +1,7 @@
 use crate::{
 	config::Config,
 	types::{Configuration, Platform, Target},
-	unreal::{BinaryModule, UProject},
+	unreal::BinaryModule,
 	utility::{spawn_command, AsUnrealStr},
 };
 use anyhow::Context;
@@ -22,15 +22,11 @@ pub struct Compile {
 impl super::Operation for Compile {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let build_batch = {
-				let mut path = config.engine_path()?;
-				path.push("Build/BatchFiles/Build.bat");
-				path
-			};
-			let project_target_name = config.get_project_target(self.target)?;
+			let build_batch = config.engine_path().join("Build/BatchFiles/Build.bat");
+			let project_target_name = config.get_project_target(self.target).unwrap();
 			spawn_command(
 				Command::new(build_batch)
-					.current_dir(config.project_root()?)
+					.current_dir(config.project_root())
 					.arg(project_target_name)
 					.arg(self.configuration.as_ue())
 					.arg(self.platform.as_ue()),
@@ -47,9 +43,8 @@ pub struct FixupBinaries;
 impl super::Operation for FixupBinaries {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let project_root = config.project_root()?;
-			let uproject = UProject::read(&config.uproject_path()?).await?;
-			let module_paths = uproject.get_module_paths(Platform::Windows);
+			let project_root = config.project_root();
+			let module_paths = config.project().get_module_paths(Platform::Windows);
 
 			let mut files_to_checkout = Vec::new();
 			let mut modules_to_update = Vec::new();

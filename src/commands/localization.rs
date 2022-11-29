@@ -41,9 +41,9 @@ impl Localization {
 		config: &crate::config::Config,
 		loc_config: &PathBuf,
 	) -> anyhow::Result<Command> {
-		let mut cmd = Command::new(config.editor_binary()?);
-		cmd.current_dir(config.project_root()?);
-		cmd.arg(config.uproject_path()?);
+		let mut cmd = Command::new(config.editor_binary());
+		cmd.current_dir(config.project_root());
+		cmd.arg(config.uproject_path());
 		cmd.arg("-run=GatherText");
 		cmd.arg(format!("-config={}", loc_config.to_str().unwrap()));
 		cmd.arg("-EnableSCC -DisableSCCSubmit");
@@ -65,14 +65,13 @@ impl Localization {
 		base_name: &str,
 		lang: Option<String>,
 	) -> anyhow::Result<(PathBuf, Option<PathBuf>)> {
-		let proj_path = config.project_root()?;
 		let base_ini = format!("{base_name}.ini");
 
 		let Some(lang) = lang else {
 			return Ok((Self::make_cfg_ini_path(None, &base_ini), None));
 		};
 
-		let base_path = Self::make_cfg_ini_path(Some(&proj_path), &base_ini);
+		let base_path = Self::make_cfg_ini_path(Some(config.project_root()), &base_ini);
 		let base_ini_content = tokio::fs::read_to_string(&base_path)
 			.await
 			.context(format!("read {base_path:?}"))?;
@@ -100,7 +99,7 @@ impl Localization {
 		let mono_lang_content = mono_lang_content.join("\n");
 
 		let mono_lang_name = format!("{base_name}_{lang}.ini");
-		let path_abs = Self::make_cfg_ini_path(Some(&proj_path), &mono_lang_name);
+		let path_abs = Self::make_cfg_ini_path(Some(&config.project_root()), &mono_lang_name);
 		let path_rel = Self::make_cfg_ini_path(None, &mono_lang_name);
 		tokio::fs::write(&path_abs, mono_lang_content)
 			.await
@@ -194,8 +193,8 @@ pub struct Import {
 
 impl Import {
 	async fn get_source_path(config: &crate::config::Config) -> anyhow::Result<PathBuf> {
-		let proj_root = config.project_root()?;
-		let import_ini_path = Localization::make_cfg_ini_path(Some(&proj_root), "Game_Import.ini");
+		let import_ini_path =
+			Localization::make_cfg_ini_path(Some(&config.project_root()), "Game_Import.ini");
 		let content = tokio::fs::read_to_string(&import_ini_path)
 			.await
 			.context("read Game_Import.ini")?;
@@ -255,9 +254,7 @@ pub struct ExportPOZip;
 impl super::Operation for ExportPOZip {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
-			let proj_root = config.project_root()?;
-
-			let loc_root = proj_root.join("Content/Localization/Game");
+			let loc_root = config.project_root().join("Content/Localization/Game");
 			let mut lang_paths = Vec::new();
 			for entry in std::fs::read_dir(&loc_root)? {
 				let entry = entry?;
@@ -268,7 +265,10 @@ impl super::Operation for ExportPOZip {
 
 			let now = chrono::Utc::now().format("%Y-%m-%d").to_string();
 			let archive_name = format!("Localization_{now}.zip");
-			let archive_path = proj_root.join("Content/Localization").join(archive_name);
+			let archive_path = config
+				.project_root()
+				.join("Content/Localization")
+				.join(archive_name);
 			let out_file = std::fs::File::options()
 				.create(true)
 				.write(true)
@@ -306,7 +306,7 @@ impl super::Operation for ImportPOZip {
 			let import_source_dir = Import::get_source_path(&config)
 				.await
 				.context("get import source path")?;
-			let import_source_dir = config.project_root()?.join(import_source_dir);
+			let import_source_dir = config.project_root().join(import_source_dir);
 			std::fs::create_dir_all(&import_source_dir).context("create import dir")?;
 
 			self.extract_zip_to(&import_source_dir)
