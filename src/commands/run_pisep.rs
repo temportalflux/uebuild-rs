@@ -50,7 +50,7 @@ impl clap::builder::TypedValueParser for MapValueParser {
 				// e.g. "/Game/Maps/Level1" => "/Game/Maps/Level1.Level1"
 				let map_name = path.file_name().unwrap().to_str().unwrap();
 				Ok(path.with_extension(map_name))
-			},
+			}
 			None => Err(clap::Error::new(clap::error::ErrorKind::InvalidValue)),
 		}
 	}

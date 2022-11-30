@@ -1,10 +1,11 @@
 {
-  "EnginePath": "C:\\Program Files\\Epic Games\\UE_5.0\\Engine",
-  "EditorBinaryPath": "Binaries/Win64/UE4Editor-Win64-DebugGame.exe",
-  "ProjectRoot": "D:\\Workspaces\\FirstPersonShooter",
-  "ProjectName": "FirstPersonShooter",
-  "DefaultServerLevel": "/Game/Maps/MainMenu",
-  "ProjectEditorTarget": "FirstPersonShooterEditor",
-  "ProjectClientTarget": "FirstPersonShooter",
-  "ProjectServerTarget": ""
+  "engine_path": "C:\\Program Files\\Epic Games\\UE_5.0\\Engine",
+  "editor_binary_path": "Binaries/Win64/UE4Editor-Win64-DebugGame.exe",
+  "project_root": "D:\\Workspaces\\FirstPersonShooter",
+  "project_name": "FirstPersonShooter",
+  "project_targets": {
+    "Editor": "FirstPersonShooterEditor",
+    "Client": "FirstPersonShooter",
+    "Server": "FirstPersonShooterServer"
+  }
 }
