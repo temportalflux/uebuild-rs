@@ -20,7 +20,7 @@ pub struct Cook {
 	dest: String,
 }
 
-impl super::Operation for Cook {
+impl crate::Operation for Cook {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let uat_batch = config.engine_path().join("Build/BatchFiles/RunUAT.bat");

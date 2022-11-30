@@ -6,7 +6,7 @@ use tokio::process::Command;
 #[derive(Parser, Debug)]
 pub struct UpdateProjectFiles;
 
-impl super::Operation for UpdateProjectFiles {
+impl crate::Operation for UpdateProjectFiles {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let root = config.project_root();

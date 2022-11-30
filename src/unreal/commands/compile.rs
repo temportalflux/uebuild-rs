@@ -19,7 +19,7 @@ pub struct Compile {
 	configuration: Configuration,
 }
 
-impl super::Operation for Compile {
+impl crate::Operation for Compile {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let build_batch = config.engine_path().join("Build/BatchFiles/Build.bat");
@@ -40,7 +40,7 @@ impl super::Operation for Compile {
 /// Dealiases the binaries for the project and its plugins.
 #[derive(Parser, Debug)]
 pub struct FixupBinaries;
-impl super::Operation for FixupBinaries {
+impl crate::Operation for FixupBinaries {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let project_root = config.project_root();

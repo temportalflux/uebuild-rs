@@ -10,11 +10,11 @@ pub struct UProject {
 	#[serde(rename = "EngineAssociation")]
 	pub engine_association: String,
 	#[serde(rename = "Plugins")]
-	pub plugins: Vec<Plugin>,
+	plugins: Vec<Plugin>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Plugin {
+struct Plugin {
 	#[serde(rename = "Name")]
 	pub name: String,
 }

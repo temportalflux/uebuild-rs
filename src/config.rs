@@ -3,7 +3,7 @@ use crate::{
 	unreal::{self, EditorTarget, UProject},
 };
 use anyhow::Context;
-use clap::{Parser, ValueEnum};
+use clap::ValueEnum;
 use enumset::EnumSetType;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -178,7 +178,7 @@ impl Config {
 		Ok(())
 	}
 
-	fn get(&self, key: &Key) -> Option<String> {
+	pub(crate) fn get(&self, key: &Key) -> Option<String> {
 		match key {
 			Key::EnginePath => Some(format!("{}", self.engine_path.display())),
 			Key::EditorBinaryPath => Some(format!("{}", self.editor_binary_path.display())),
@@ -190,7 +190,7 @@ impl Config {
 		}
 	}
 
-	fn set(&mut self, key: &Key, value: String) {
+	pub(crate) fn set(&mut self, key: &Key, value: String) {
 		match key {
 			Key::EnginePath => {
 				self.engine_path = PathBuf::from_str(&value).unwrap();
@@ -216,7 +216,7 @@ impl Config {
 		}
 	}
 
-	async fn save(&self) -> anyhow::Result<()> {
+	pub(crate) async fn save(&self) -> anyhow::Result<()> {
 		let cfg_path = Self::cfg_path()?;
 		let content = serde_json::to_string_pretty(&self)?;
 		println!("Saving current configuration to {:?}", cfg_path);
@@ -234,6 +234,10 @@ impl Config {
 
 	pub fn project_root(&self) -> &PathBuf {
 		&self.project_root
+	}
+
+	pub fn project_name(&self) -> &String {
+		&self.project_name
 	}
 
 	pub fn uproject_path(&self) -> PathBuf {
@@ -264,90 +268,6 @@ pub struct MissingValue(Key);
 impl std::fmt::Display for MissingValue {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "Missing config value for key {:?}", self.0)
-	}
-}
-
-/// Handle changes to the user preferences/configuration for this project.
-///
-/// Without a key, will present the entire configuration.
-///
-/// With key but no value with present the value for that key.
-///
-/// With key and value will update the config with the value.
-#[derive(Parser, Debug)]
-pub struct Configure {
-	#[clap(value_enum)]
-	key: Option<Key>,
-	value: Option<String>,
-}
-
-impl crate::commands::Operation for Configure {
-	fn run(self, mut config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
-		Box::pin(async move {
-			match (self.key, self.value) {
-				(None, _) => {
-					println!("Project:");
-					println!("  Root: {:?}", config.project_root());
-					println!("  Name: {:?}", config.project_name);
-					println!("  UProject: {:?}", config.uproject_path());
-					println!("  Targets:");
-					println!(
-						"    Editor: {:?}",
-						config.get_project_target(Target::Editor)
-					);
-					println!(
-						"    Client: {:?}",
-						config.get_project_target(Target::Client)
-					);
-					println!(
-						"    Server: {:?}",
-						config.get_project_target(Target::Server)
-					);
-					println!("Engine:");
-					println!("  Path: {:?}", config.engine_path());
-					println!("  Default Maps:");
-					println!("    Server: {:?}", config.engine().default_map_server);
-					println!("    Game: {:?}", config.engine().default_map_game);
-					println!("  Modes: {}", config.engine().mode_aliases().join(", "));
-					println!("Game:");
-					println!("  Maps:");
-					{
-						let maps_by_name = config.game().maps_by_name();
-						let maps = {
-							let mut maps = maps_by_name.iter().collect::<Vec<_>>();
-							maps.sort_by_key(|(name, _)| *name);
-							maps
-						};
-						for (name, path) in maps.into_iter() {
-							println!("    {:?} => {:?}", name, path);
-						}
-					}
-					println!("Editor:");
-					println!("  Binary Path: {:?}", config.editor_binary());
-				}
-				(Some(key), None) => {
-					println!("{:?} => {:?}", key, config.get(&key));
-				}
-				(Some(key), Some(value)) => {
-					config.set(&key, value);
-					config.save().await?;
-				}
-			}
-			Ok(())
-		})
-	}
-}
-
-/// Save the dynamically generated config to the current directory.
-#[derive(Parser, Debug)]
-pub struct SaveToDisk;
-
-impl crate::commands::Operation for SaveToDisk {
-	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
-		Box::pin(async move {
-			config.save().await?;
-			Ok(())
-		})
 	}
 }
 
@@ -448,6 +368,14 @@ impl Engine {
 		}
 
 		Ok(engine)
+	}
+
+	pub fn default_map_server(&self) -> Option<&String> {
+		self.default_map_server.as_ref()
+	}
+
+	pub fn default_map_game(&self) -> Option<&String> {
+		self.default_map_game.as_ref()
 	}
 
 	pub fn default_map(&self) -> Option<PathBuf> {
