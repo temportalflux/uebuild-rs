@@ -2,29 +2,14 @@ use crate::utility::{spawn_command, PinFuture};
 use clap::Parser;
 use tokio::process::Command;
 
-mod project_files;
-pub use project_files::*;
-mod compile;
-pub use compile::*;
-mod cook;
-pub use cook::*;
-mod run_editor;
-pub use run_editor::*;
-mod run_pisep;
-pub use run_pisep::*;
-pub mod localization;
-
-pub trait Operation {
-	fn run(self, config: crate::config::Config) -> PinFuture<anyhow::Result<()>>;
-}
-
 /// [DEBUG ONLY] Compile uebuild as a binary and copy it to the project's root directory.
 #[derive(Parser, Debug)]
 pub struct ReleaseBinary {
 	#[clap(short, long, default_value = "uebuild")]
 	name: String,
 }
-impl Operation for ReleaseBinary {
+
+impl crate::Operation for ReleaseBinary {
 	fn run(self, config: crate::config::Config) -> PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let out_path = config.project_root().join(self.name).with_extension("exe");

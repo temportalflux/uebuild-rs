@@ -6,7 +6,7 @@ use tokio::process::Command;
 #[derive(Parser, Debug)]
 pub struct RunEditor;
 
-impl super::Operation for RunEditor {
+impl crate::Operation for RunEditor {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			spawn_command(

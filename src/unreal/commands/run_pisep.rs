@@ -122,7 +122,7 @@ impl RunPisep {
 	}
 }
 
-impl super::Operation for RunPisep {
+impl crate::Operation for RunPisep {
 	fn run(self, config: Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let mut cmd = Command::new(config.editor_binary());

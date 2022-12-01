@@ -22,7 +22,7 @@ pub enum Localization {
 	ImportZip(ImportPOZip),
 }
 
-impl super::Operation for Localization {
+impl crate::Operation for Localization {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		match self {
 			Self::Gather(cmd) => cmd.run(config),
@@ -137,7 +137,7 @@ pub struct Gather {
 	lang: Option<String>,
 }
 
-impl super::Operation for Gather {
+impl crate::Operation for Gather {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			Localization::run_command(&config, "Game_Gather", self.lang)
@@ -155,7 +155,7 @@ pub struct Export {
 	lang: Option<String>,
 }
 
-impl super::Operation for Export {
+impl crate::Operation for Export {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			Localization::run_command(&config, "Game_Export", self.lang)
@@ -173,7 +173,7 @@ pub struct Compile {
 	lang: Option<String>,
 }
 
-impl super::Operation for Compile {
+impl crate::Operation for Compile {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			Localization::run_command(&config, "Game_Compile", self.lang)
@@ -203,7 +203,7 @@ impl Import {
 	}
 }
 
-impl super::Operation for Import {
+impl crate::Operation for Import {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			Localization::run_command(&config, "Game_Import", self.lang)
@@ -221,7 +221,7 @@ pub struct Update {
 	lang: Option<String>,
 }
 
-impl super::Operation for Update {
+impl crate::Operation for Update {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			println!("Updating localization files...\n");
@@ -251,7 +251,7 @@ impl super::Operation for Update {
 #[derive(Parser, Debug)]
 pub struct ExportPOZip;
 
-impl super::Operation for ExportPOZip {
+impl crate::Operation for ExportPOZip {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let loc_root = config.project_root().join("Content/Localization/Game");
@@ -300,7 +300,7 @@ pub struct ImportPOZip {
 	zip_path: PathBuf,
 }
 
-impl super::Operation for ImportPOZip {
+impl crate::Operation for ImportPOZip {
 	fn run(self, config: crate::config::Config) -> crate::utility::PinFuture<anyhow::Result<()>> {
 		Box::pin(async move {
 			let import_source_dir = Import::get_source_path(&config)
