@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["ReleaseBinary","[DEBUG ONLY] Compile uebuild as a binary and copy it to the project’s root directory."]]};

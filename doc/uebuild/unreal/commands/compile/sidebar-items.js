@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Compile","Compiles the code for the project."],["FixupBinaries","Dealiases the binaries for the project and its plugins."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["SaveToDisk","Save the dynamically generated config to the current directory."]]};

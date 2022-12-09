@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Cook","Cooks the project to run standalone."],["InvalidCookTarget",""]]};

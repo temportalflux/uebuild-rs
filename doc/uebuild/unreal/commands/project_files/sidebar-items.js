@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["UpdateProjectFiles","Generate the project files (e.g. “.sln”)"]]};
