@@ -13,3 +13,10 @@ In this book you will find a guide for using the tool & what the specific comman
 ## License
 
 The uebuild source and documentation are released under the [MIT](https://github.com/temportalflux/uebuild-rs/blob/main/LICENSE-MIT) and [Apache 2.0](https://github.com/temportalflux/uebuild-rs/blob/main/LICENSE-APACHE) licenses.
+
+TODO: Generate code docs and mdbook on commit to public to gh-pages.
+`cargo doc --no-deps --document-private-items --release` and move `./target/doc` to `<gh-pages>/doc`
+Refer to doc as [docs](doc/uebuild).
+Build mdbook via `mdbook build`.
+https://github.com/rust-lang/mdBook/issues/1803
+https://github.com/rust-lang/mdBook/wiki/Automated-Deployment%3A-GitHub-Pages
